@@ -15,5 +15,15 @@
 
 
 
-# CAMERA
+# VELODYNE VLP-16 : 3D LIDAR
+
+* Horizontal resolution : 0.2 [deg]
+
+  Vertical resoulution : 16 channel ( -15 [deg] ~ 15[deg] )
+
+* Purpose of usage : 
+
+  * Dynamic obstacle avoidance
+  * Calibration with camera
+    * Get exact distance that camera sensor detected with YOLO V5 model
 
