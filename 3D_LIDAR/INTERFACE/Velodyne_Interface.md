@@ -52,9 +52,9 @@ Environment : Windows 10, Python, Anaconda 3
 
 ### 2.2. Single return mode data structure
 
-<img src="https://user-images.githubusercontent.com/99113269/217721501-532803af-f947-42f4-9644-f5dd5d015f13.png" alt="image" style="zoom:50%;" />
+<img src="https://user-images.githubusercontent.com/99113269/217721501-532803af-f947-42f4-9644-f5dd5d015f13.png" alt="image" style="zoom:40%;" />
 
-<img src="https://user-images.githubusercontent.com/99113269/217722149-7cd21e0a-c977-40a2-bc02-a2abe18d2fe9.png" alt="image" style="zoom: 67%;" />
+<img src="https://user-images.githubusercontent.com/99113269/217722149-7cd21e0a-c977-40a2-bc02-a2abe18d2fe9.png" alt="image" style="zoom: 50%;" />
 
 * 하나의 데이터 packet : 1248 byte
 * 12개의 데이터 block이 존재
@@ -303,3 +303,81 @@ Original code :
 
 
 
+
+
+### 3.6. Real time code 구현
+
+* 먼저, real time code를 구현하기 위해서는, save package 과정과 unpack 과정이 multiprocess의 형태로 타이밍이 맞게 이루어져야 한다.
+
+* 그렇기에, main문의 구조를 다음과 같이 수정했다.
+
+* 구조에 따르면, 한 프로세스에서는 bin file을 저장하고, 다른 프로세스에서는 그러한 bin file을 해석하여 XYZ 결과를 저장한다.
+
+* 이 구조가 완성이 되면, 다른 프로세스 하나를 열어, 실시간 구조의 형태로 IPC 통신을 통해 다른 프로세스에 raw 데이터를 넘겨 처리하면 될것이다.
+
+  ```python
+  if __name__ == "__main__":
+      
+      if len(sys.argv) < 3:
+          print(__doc__)
+          sys.exit(2)
+          
+      if sys.argv[1] == 'start':
+          
+          top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
+      
+          processA = Process(target = capture, args = (PORT, DATA_QUEUE))
+          processA.start()
+          processB = Process(target = save_package, args = (sys.argv[2] + '/' + top_dir, DATA_QUEUE))
+          processB.start()
+          processC = Process(target = unpack, args = (sys.argv[2] + '/' + top_dir))
+          processC.start()        
+  ```
+
+* 추가한 실시간 구현의 코드 구조는 다음과 같고, processD or real time 구조 안에서 데이터 처리 or IPC 통신을 통해 다른 프로세스에 데이터를 넘겨주는 작업을 하면 될 것이다.
+
+  ```python
+  if __name__ == "__main__":
+      
+      time_curr = 0
+      time_cnt = 0
+      time_stime = 0
+      time_ts = 0.1      
+      time_final = 10
+      
+      if len(sys.argv) < 3:
+          print(__doc__)
+          sys.exit(2)      
+      
+      if sys.argv[1] == 'go':
+                
+          top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
+          
+          processA = Process(target = capture, args = (PORT, DATA_QUEUE))
+          processA.start()
+          processB = Process(target = save_package, args = (sys.argv[2] + '/' + top_dir, DATA_QUEUE))
+          processB.start()
+          processC = Process(target = unpack, args = (sys.argv[2] + '/' + top_dir))
+          processC.start()        
+          
+          # REAL TIME STRUCTURE
+          time_start = time.time()
+          
+          while (time_stime < time_final) :
+              
+              print("Operating real time ...!")
+              
+              while(1) :
+              
+                  time_curr = time.time()
+                  time_del = time_curr - time_start - time_stime
+                  
+                  if (time_del > time_ts):
+                      
+                      time_cnt+=1
+                      time_stime = time_cnt*time_ts
+                      
+                      break
+  ```
+
+  
