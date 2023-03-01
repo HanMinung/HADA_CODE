@@ -334,16 +334,17 @@ Original code :
           processC.start()        
   ```
 
-* 추가한 실시간 구현의 코드 구조는 다음과 같고, processD or real time 구조 안에서 데이터 처리 or IPC 통신을 통해 다른 프로세스에 데이터를 넘겨주는 작업을 하면 될 것이다.
+* 추가한 실시간 구현의 코드 구조는 다음과 같고, real time 구조 안에서 데이터 처리 or IPC 통신을 통해 다른 프로세스에 데이터를 넘겨주는 작업을 하면 될 것이다.
 
   ```python
-  if __name__ == "__main__":
+  if __name__ == "__main__" :
       
+      dec = DECODE()
       time_curr = 0
       time_cnt = 0
       time_stime = 0
-      time_ts = 0.1      
-      time_final = 10
+      time_ts = 0.2     
+      time_final = 1000
       
       if len(sys.argv) < 3:
           print(__doc__)
@@ -356,17 +357,16 @@ Original code :
           processA = Process(target = capture, args = (PORT, DATA_QUEUE))
           processA.start()
           processB = Process(target = save_package, args = (sys.argv[2] + '/' + top_dir, DATA_QUEUE))
-          processB.start()
-          processC = Process(target = unpack, args = (sys.argv[2] + '/' + top_dir))
-          processC.start()        
+          processB.start()      
           
-          # REAL TIME STRUCTURE
+          ###  REAL TIME STRUCTURE  ###
           time_start = time.time()
           
           while (time_stime < time_final) :
               
-              print("Operating real time ...!")
+              dec.unpack(sys.argv[2] + '/' + top_dir)
               
+              # IDLE time
               while(1) :
               
                   time_curr = time.time()

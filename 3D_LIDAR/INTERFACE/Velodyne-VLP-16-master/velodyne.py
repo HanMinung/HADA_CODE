@@ -14,16 +14,26 @@ PORT = 2368
 LASER_ANGLES = [-15, 1, -13, 3, -11, 5, -9, 7, -7, 9, -5, 11, -3, 13, -1, 15]
 NUM_LASERS = 16
 
+# REAL TIME STRUCTURE
+time_curr = 0
+time_cnt = 0
+time_stime = 0
+time_ts = 0.1     
+time_final = 100
+
+
 EXPECTED_PACKET_TIME = 0.001327  # valid only in "the strongest return mode"
 EXPECTED_SCAN_DURATION = 0.1
 DISTANCE_RESOLUTION = 0.002
 ROTATION_RESOLUTION = 0.01
 ROTATION_MAX_UNITS = 36000
 
+
 VLP_START_BYTE = 2
 VLP_AZIMUTH_BYTE = 2
 VLP_DIST_BYTE = 2
 VLP_REFLEC_BYTE = 1
+
 
 VLP_BLOCK_BYTE = 100
 
@@ -71,7 +81,6 @@ LOGGING_CONFIG = {
 # logging.config.dictConfig(LOGGING_CONFIG)
 # logger = logging.getLogger("")
 
-
 def save_csv(path, data):
     
     with open(path, 'w', newline = '') as fp:
@@ -93,90 +102,101 @@ def calc(dis, azimuth, laser_id, timestamp):
     return [X, Y, Z, timestamp]
 
 
+class DECODE :
 
-def unpack(bin_dirs, pcd_dirs):
-    
-    files = glob.glob(bin_dirs + '/*.bin')
-    points = []
-    scan_index = 0
-    prev_azimuth = None
-    csv_index = 0
-    
-    for x in files:
+    def __init__(self) :
         
-        d = open(x, 'rb').read()
-        n = len(d)
+        self.pcd_idx = 0
+        self.csv_idx = 0
+        self.scan_idx = 0
         
-        # Xyzi = []
+    def unpack(self, *bin_dirs) :
+
+        bin_dirs = ''.join(bin_dirs)
+        points = []
+        prev_azimuth = None
+
+        # while True : 
+
+        files = glob.glob(bin_dirs + '/*.bin')
+        idx = len(files)
+
+        if (idx < 3) :
+            pass
         
-        for offset in range(0, n, 1223):
-            
-            ts = d[offset : offset + 17]
-            data = d[offset + 17 : offset + 1223]
-            
-            print(ts, len(data))
-            
-            timestamp, factory = struct.unpack_from("<IH", data, offset=1200)
-            assert factory == 0x2237, hex(factory)  # 0x22=VLP-16, 0x37=Strongest Return
-            timestamp = float(ts)
-            seq_index = 0
-            
-            for offset in range(0, 1200, 100):
-                
-                flag, azimuth = struct.unpack_from("<HH", data, offset)
-                assert flag == 0xEEFF, hex(flag)
-                
-                for step in range(2):
-                    
-                    seq_index += 1
-                    azimuth += step
-                    azimuth %= ROTATION_MAX_UNITS
-                    
-                    if prev_azimuth is not None and azimuth < prev_azimuth:
-                        
-                        file_fmt = os.path.join(bin_dirs, '%Y-%m-%d_%H%M')
-                        path = datetime.now().strftime(file_fmt)
-                        
-                        try:
-                            if os.path.exists(path) is False:
-                                os.makedirs(path)
-                        
-                        except Exception as e:
-                            print(e)
-                       
-                        if not points:
-                            timestamp_str = b'%.6f' % time.time()
-                       
-                        else:
-                            timestamp_str = b'%.6f' % points[0][3]
-                        
-                        # csv_index = b'%08d' % scan_index
-                        csv_index += 1
-                        # Saving file in CSV format
-                        # save_csv("{}/i{}_{}.csv".format(path, csv_index, timestamp_str), points)
-                        save_csv("{}/scanindex_{}.csv".format(path, csv_index),points )
-                        # logger.info("{}/i{}_{}.csv".format(path, csv_index, timestamp_str))
-                        scan_index += 1
-                        points = []
-                        
-                    prev_azimuth = azimuth
-                      # H-distance (2mm step), B-reflectivity (0)
-                    arr = struct.unpack_from('<' + "HB" * 16, data, offset + 4 + step * 48)
-                    
-                    for i in range(NUM_LASERS):
-                        
-                        time_offset = (55.296 * seq_index + 2.304 * i) / 1000000.0
-                        
-                        if arr[i * 2] != 0 :
+        else :
+
+            d = files[idx - 2]
+            d = open(d, 'rb').read()
+            n = len(d)
+
+            for offset in range(0, n, 1223):
+
+                ts = d[offset : offset + 17]
+                data = d[offset + 17 : offset + 1223]
+
+                timestamp, factory = struct.unpack_from("<IH", data, offset=1200)
+                assert factory == 0x2237, hex(factory)  # 0x22=VLP-16, 0x37=Strongest Return
+                timestamp = float(ts)
+                seq_index = 0
+
+                for offset in range(0, 1200, 100):
+
+                    flag, azimuth = struct.unpack_from("<HH", data, offset)
+                    assert flag == 0xEEFF, hex(flag)
+
+                    for step in range(2):
+
+                        seq_index += 1
+                        azimuth += step
+                        azimuth %= ROTATION_MAX_UNITS
+
+                        if prev_azimuth is not None and azimuth < prev_azimuth :
+
+                            file_fmt = os.path.join(bin_dirs, 'PCD_' + '%Y-%m-%d_%H%M')
+                            path = datetime.now().strftime(file_fmt)
+
+                            try:
+                                if os.path.exists(path) is False:
+                                    os.makedirs(path)
+
+                            except Exception as e:
+                                print(e)
+
+                            if not points:
+                                timestamp_str = b'%.6f' % time.time()
+
+                            else:
+                                timestamp_str = b'%.6f' % points[0][3]
+
+                            # self.csv_idx += 1
+                            # save_csv("{}/scanindex_{}.csv".format(path, csv_idx), points)
+
+                            arr = np.array(points)
+                            X = arr[:,0]
+                            Y = arr[:,1]
+                            Z = arr[:,2]
+                            I = arr[:,3]        
+
+                            self.pcd_idx += 1
+                            writePCDFile("{}/pcdindex_{}.pcd".format(path, self.pcd_idx), X, Y, Z, I)
+
+                            points = []
+
+                        prev_azimuth = azimuth
+                        arr = struct.unpack_from('<' + "HB" * 16, data, offset + 4 + step * 48)
+
+                        for i in range(NUM_LASERS):
+
+                            time_offset = (55.296 * seq_index + 2.304 * i) / 1000000.0
+
+                            if arr[i * 2] != 0 :
+
+                                points.append(calc(arr[i * 2], azimuth, i, timestamp + time_offset))
                             
-                            points.append(calc(arr[i * 2], azimuth, i, timestamp + time_offset))
-                            # Xyzi.append(calc(arr[i * 2], azimuth, i, timestamp + time_offset))
-                         
-    # Xyzi = np.array(Xyzi)
+                            
+                                
 
-    # writePCDFile(pcd_dirs, Xyzi[:,0] ,Xyzi[:,1] ,Xyzi[:,2] ,Xyzi[:,3])
-                
-                
 
 def save_package(dirs, data_queue):
     
@@ -197,7 +217,7 @@ def save_package(dirs, data_queue):
                 data = msg['data']
                 ts = msg['time']
                 
-                print(ts, len(data), 'queue size: ', data_queue.qsize(), cnt)
+                # print(ts, len(data), 'queue size: ', data_queue.qsize(), cnt)
                 
                 if fp == None or cnt == 1000000:
                     
@@ -206,11 +226,13 @@ def save_package(dirs, data_queue):
                     
                     if fp != None:
                         fp.close()
-                        
+                        1
+                    # file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
+                    # path = str(datetime.now().strftime(file_fmt)) + '_' + str(idx) +'.bin'     
                     file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
-                    path = str(datetime.now().strftime(file_fmt)) + '_' + str(idx) +'.bin'     
-        
-                    print('save to ', path)
+                    path = 'frame_' + str(idx) + '.bin'
+
+                    # print('save to ', path)
                     
                     cnt = 0 
                     
@@ -221,14 +243,17 @@ def save_package(dirs, data_queue):
                 if (END_TIME - START_TIME > 0.1 * idx) :
                     idx += 1
                 
-                file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
-                path = str(datetime.now().strftime(file_fmt)) + '_' + str(idx) +'.bin'                   
+                # file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
+                
+                # path = str(datetime.now().strftime(file_fmt)) + '_' + str(idx) +'.bin'
+                path = os.path.join(dirs, 'frame_' + str(idx) + '.bin')                     
                 fp = open(path, 'ab')  
                 
-                print("save to :", path)
+                # print("save to :", path)
                 
                 fp.write(b'%.6f' % ts)
                 fp.write(data)
+                # print("PROCESS 2 : BIN FILE PROPERLY SAVED...!")
 
                 
                 
@@ -240,6 +265,7 @@ def save_package(dirs, data_queue):
         
         if fp != None:
             fp.close()
+
 
 
 
@@ -261,23 +287,48 @@ def capture(port, data_queue):
         print(e)
 
 
-if __name__ == "__main__":
+
+
+if __name__ == "__main__" :
+    
+    decode = DECODE()
     
     if len(sys.argv) < 3:
         print(__doc__)
-        sys.exit(2)
-        
-    if sys.argv[1] == 'read':
-        top_dir = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+        sys.exit(2)      
     
+    if sys.argv[1] == 'go':
+              
+        top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
+        
         processA = Process(target = capture, args = (PORT, DATA_QUEUE))
         processA.start()
         processB = Process(target = save_package, args = (sys.argv[2] + '/' + top_dir, DATA_QUEUE))
         processB.start()
         # processC = Process(target = unpack, args = (sys.argv[2] + '/' + top_dir))
-        # processC.start()
+        # processC.start()        
         
+        ###  REAL TIME STRUCTURE  ###
+        time_start = time.time()
         
-    else:
-        # unpack(sys.argv[2], sys.argv[3])
-        unpack(sys.argv[2])
+        while (time_stime < time_final) :
+            
+            decode.unpack(sys.argv[2] + '/' + top_dir)
+            
+            while(1) :
+            
+                time_curr = time.time()
+                time_del = time_curr - time_start - time_stime
+                
+                if (time_del > time_ts):
+                    
+                    time_cnt+=1
+                    time_stime = time_cnt*time_ts
+                    
+                    break
+        
+        print("PROGRAM FINISHED ...!")
+        processA.terminate()
+        processB.terminate()
+        print("PROCESS A and B IS TERMINATED ...!")
+        

@@ -9,6 +9,7 @@ import time
 import traceback
 import numpy as np
 from multiprocessing import Process, Queue, Pool
+from PCDfile import writePCDFile
 
 import logging
 import logging.config

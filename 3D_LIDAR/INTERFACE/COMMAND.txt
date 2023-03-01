@@ -1,0 +1,15 @@
+conda activate py39
+
+cd C:\Users\hanmu\Desktop\3D_LIDAR\code\Velodyne-VLP-16-master
+
+python velodyne.py go C:\Users\hanmu\Desktop\3D_LIDAR\code\Velodyne-VLP-16-master\test
+
+python velodyne.py unpack C:\Users\hanmu\Desktop\3D_LIDAR\code\Velodyne-VLP-16-master\test\2023-02-14_104146
+
+------ FOR TEST -------
+
+conda activate py39
+
+cd C:\Users\hanmu\Desktop\3D_LIDAR\code\Velodyne-VLP-16-master
+
+python velodyne.py unpack C:\Users\hanmu\Desktop\3D_LIDAR_TEST\test\2023-02-14_153914 C:\Users\hanmu\Desktop\3D_LIDAR_TEST\test\2023-02-14_153914\bin2pcd
