@@ -238,8 +238,6 @@ Original code :
 
 
 
-
-
 #### 3.4.3. saving CSV
 
 * CSV file 생성
@@ -265,8 +263,6 @@ Original code :
   ```
 
   <img src="https://user-images.githubusercontent.com/99113269/218670820-2433a423-1c5c-439a-b4f0-9501b52b286d.png" alt="image" style="zoom: 33%;" />
-
-
 
 
 
@@ -309,75 +305,52 @@ Original code :
 
 * 먼저, real time code를 구현하기 위해서는, save package 과정과 unpack 과정이 multiprocess의 형태로 타이밍이 맞게 이루어져야 한다.
 
-* 그렇기에, main문의 구조를 다음과 같이 수정했다.
-
 * 구조에 따르면, 한 프로세스에서는 bin file을 저장하고, 다른 프로세스에서는 그러한 bin file을 해석하여 XYZ 결과를 저장한다.
 
 * 이 구조가 완성이 되면, 다른 프로세스 하나를 열어, 실시간 구조의 형태로 IPC 통신을 통해 다른 프로세스에 raw 데이터를 넘겨 처리하면 될것이다.
-
-  ```python
-  if __name__ == "__main__":
-      
-      if len(sys.argv) < 3:
-          print(__doc__)
-          sys.exit(2)
-          
-      if sys.argv[1] == 'start':
-          
-          top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
-      
-          processA = Process(target = capture, args = (PORT, DATA_QUEUE))
-          processA.start()
-          processB = Process(target = save_package, args = (sys.argv[2] + '/' + top_dir, DATA_QUEUE))
-          processB.start()
-          processC = Process(target = unpack, args = (sys.argv[2] + '/' + top_dir))
-          processC.start()        
-  ```
 
 * 추가한 실시간 구현의 코드 구조는 다음과 같고, real time 구조 안에서 데이터 처리 or IPC 통신을 통해 다른 프로세스에 데이터를 넘겨주는 작업을 하면 될 것이다.
 
   ```python
   if __name__ == "__main__" :
       
-      dec = DECODE()
-      time_curr = 0
-      time_cnt = 0
-      time_stime = 0
-      time_ts = 0.2     
-      time_final = 1000
+      decode = DECODE()
       
-      if len(sys.argv) < 3:
-          print(__doc__)
-          sys.exit(2)      
+      print("\n\n------------------------------------------------------------------")
+      print("                      PROGRAM START...!                             \n")
+      print("             - SAMPLING TIME  :  {}".format(time_ts))                       
+      print("             - FINAL TIME     :  {}".format(time_final))
+      print("----------------------------------------------------------------------")
       
-      if sys.argv[1] == 'go':
-                
-          top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
+      top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
+      
+      processA = Process(target = capture, args = (PORT, DATA_QUEUE))
+      processA.start() 
+      processB = Process(target = save_package, args = (sys.argv[1] + '/' + top_dir, DATA_QUEUE))
+      processB.start()
+      
+      time_start = time.time()
+      
+      while (time_stime < time_final) :
+  
+          decode.unpack(os.path.join(sys.argv[1], top_dir))
           
-          processA = Process(target = capture, args = (PORT, DATA_QUEUE))
-          processA.start()
-          processB = Process(target = save_package, args = (sys.argv[2] + '/' + top_dir, DATA_QUEUE))
-          processB.start()      
+          while(1) :
           
-          ###  REAL TIME STRUCTURE  ###
-          time_start = time.time()
-          
-          while (time_stime < time_final) :
+              time_curr = time.time()
+              time_del = time_curr - time_start - time_stime
               
-              dec.unpack(sys.argv[2] + '/' + top_dir)
-              
-              # IDLE time
-              while(1) :
-              
-                  time_curr = time.time()
-                  time_del = time_curr - time_start - time_stime
+              if (time_del > time_ts):
                   
-                  if (time_del > time_ts):
-                      
-                      time_cnt+=1
-                      time_stime = time_cnt*time_ts
-                      
-                      break
+                  time_cnt += 1
+                  time_stime = time_cnt * time_ts
+                  
+                  break
+      
+      processA.terminate()
+      processB.terminate()
+      
+      print("PROCESS A and B IS TERMINATED ...!")
+      print("PROGRAM FINISHED ...!")
   ```
-
   

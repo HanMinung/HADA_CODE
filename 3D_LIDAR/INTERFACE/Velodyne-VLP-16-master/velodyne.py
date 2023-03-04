@@ -18,8 +18,8 @@ NUM_LASERS = 16
 time_curr = 0
 time_cnt = 0
 time_stime = 0
-time_ts = 0.1     
-time_final = 100
+time_ts = 0.1    
+time_final = 10
 
 
 EXPECTED_PACKET_TIME = 0.001327  # valid only in "the strongest return mode"
@@ -81,14 +81,6 @@ LOGGING_CONFIG = {
 # logging.config.dictConfig(LOGGING_CONFIG)
 # logger = logging.getLogger("")
 
-def save_csv(path, data):
-    
-    with open(path, 'w', newline = '') as fp:
-        
-        wr = csv.writer(fp, delimiter=',')
-        wr.writerows(data)
-
-
 
 def calc(dis, azimuth, laser_id, timestamp):
     
@@ -109,14 +101,13 @@ class DECODE :
         self.pcd_idx = 0
         self.csv_idx = 0
         self.scan_idx = 0
+        self.remove_idx = 1
         
     def unpack(self, *bin_dirs) :
 
         bin_dirs = ''.join(bin_dirs)
         points = []
         prev_azimuth = None
-
-        # while True : 
 
         files = glob.glob(bin_dirs + '/*.bin')
         idx = len(files)
@@ -125,11 +116,11 @@ class DECODE :
             pass
         
         else :
-
+            
             d = files[idx - 2]
             d = open(d, 'rb').read()
             n = len(d)
-
+                
             for offset in range(0, n, 1223):
 
                 ts = d[offset : offset + 17]
@@ -169,18 +160,18 @@ class DECODE :
                             else:
                                 timestamp_str = b'%.6f' % points[0][3]
 
-                            # self.csv_idx += 1
-                            # save_csv("{}/scanindex_{}.csv".format(path, csv_idx), points)
-
                             arr = np.array(points)
                             X = arr[:,0]
                             Y = arr[:,1]
                             Z = arr[:,2]
                             I = arr[:,3]        
-
+                            
                             self.pcd_idx += 1
                             writePCDFile("{}/pcdindex_{}.pcd".format(path, self.pcd_idx), X, Y, Z, I)
 
+                            removeFile(bin_dirs, self.remove_idx)
+                            self.remove_idx += 1
+                            
                             points = []
 
                         prev_azimuth = azimuth
@@ -196,7 +187,6 @@ class DECODE :
                             
                             
                                 
-
 
 def save_package(dirs, data_queue):
     
@@ -217,8 +207,6 @@ def save_package(dirs, data_queue):
                 data = msg['data']
                 ts = msg['time']
                 
-                # print(ts, len(data), 'queue size: ', data_queue.qsize(), cnt)
-                
                 if fp == None or cnt == 1000000:
                     
                     START_TIME = time.time()
@@ -227,13 +215,9 @@ def save_package(dirs, data_queue):
                     if fp != None:
                         fp.close()
                         1
-                    # file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
-                    # path = str(datetime.now().strftime(file_fmt)) + '_' + str(idx) +'.bin'     
-                    file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
-                    path = 'frame_' + str(idx) + '.bin'
 
-                    # print('save to ', path)
-                    
+                    file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
+                    path = 'frame_' + str(idx) + '.bin'                    
                     cnt = 0 
                     
                 cnt += 1
@@ -243,17 +227,11 @@ def save_package(dirs, data_queue):
                 if (END_TIME - START_TIME > 0.1 * idx) :
                     idx += 1
                 
-                # file_fmt = os.path.join(dirs, '%Y-%m-%d_%H%M')
-                
-                # path = str(datetime.now().strftime(file_fmt)) + '_' + str(idx) +'.bin'
                 path = os.path.join(dirs, 'frame_' + str(idx) + '.bin')                     
-                fp = open(path, 'ab')  
-                
-                # print("save to :", path)
-                
+                fp = open(path, 'ab')
+                                
                 fp.write(b'%.6f' % ts)
                 fp.write(data)
-                # print("PROCESS 2 : BIN FILE PROPERLY SAVED...!")
 
                 
                 
@@ -288,47 +266,55 @@ def capture(port, data_queue):
 
 
 
+def removeFile(dirs, idx) :
+    
+    filename = 'frame_' + str(idx) + '.bin'
+    file = os.path.join(dirs, filename)
+    print(file)
+    
+    os.remove(file)
+
+
 
 if __name__ == "__main__" :
     
     decode = DECODE()
     
-    if len(sys.argv) < 3:
-        print(__doc__)
-        sys.exit(2)      
+    print("\n\n------------------------------------------------------------------")
+    print("                      PROGRAM START...!                             \n")
+    print("             - SAMPLING TIME  :  {}".format(time_ts))                       
+    print("             - FINAL TIME     :  {}".format(time_final))
+    print("----------------------------------------------------------------------")
     
-    if sys.argv[1] == 'go':
-              
-        top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
+    top_dir = 'binfile_' + datetime.now().strftime('%H_%M_%S')
+    
+    processA = Process(target = capture, args = (PORT, DATA_QUEUE))
+    processA.start() 
+    processB = Process(target = save_package, args = (sys.argv[1] + '/' + top_dir, DATA_QUEUE))
+    processB.start()
+    
+    time_start = time.time()
+    
+    while (time_stime < time_final) :
+
+        decode.unpack(os.path.join(sys.argv[1], top_dir))
         
-        processA = Process(target = capture, args = (PORT, DATA_QUEUE))
-        processA.start()
-        processB = Process(target = save_package, args = (sys.argv[2] + '/' + top_dir, DATA_QUEUE))
-        processB.start()
-        # processC = Process(target = unpack, args = (sys.argv[2] + '/' + top_dir))
-        # processC.start()        
+        while(1) :
         
-        ###  REAL TIME STRUCTURE  ###
-        time_start = time.time()
-        
-        while (time_stime < time_final) :
+            time_curr = time.time()
+            time_del = time_curr - time_start - time_stime
             
-            decode.unpack(sys.argv[2] + '/' + top_dir)
-            
-            while(1) :
-            
-                time_curr = time.time()
-                time_del = time_curr - time_start - time_stime
+            if (time_del > time_ts):
                 
-                if (time_del > time_ts):
-                    
-                    time_cnt+=1
-                    time_stime = time_cnt*time_ts
-                    
-                    break
-        
-        print("PROGRAM FINISHED ...!")
-        processA.terminate()
-        processB.terminate()
-        print("PROCESS A and B IS TERMINATED ...!")
+                time_cnt += 1
+                time_stime = time_cnt * time_ts
+                
+                break
+    
+    processA.terminate()
+    processB.terminate()
+    
+    print("PROCESS A and B IS TERMINATED ...!")
+    print("PROGRAM FINISHED ...!")
+    
         

@@ -23,7 +23,7 @@
 
 * Purpose of usage : 
 
-  * Dynamic obstacle avoidance
-  * Calibration with camera
+  * Dynamic obstacle avoidance 
+  * Calibration with camera sensor
     * Get exact distance that camera sensor detected with YOLO V5 model
 
