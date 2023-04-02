@@ -61,42 +61,106 @@ Purpose : Perceived object distance estimation through lidar and camera calibrat
 
 
 
-## 3. Extrinsic parameter estimation
+## 3. Extrinsic matrix
 
-* How to calculate [R|t] extrinsic matrix ?
+* Process
 
-  * 찾아본 방법에는 두 가지가 존재한다.
+  <img src="https://user-images.githubusercontent.com/99113269/229337868-afb5e1ea-5a8d-40fd-9e8a-9c0184886d03.png" alt="image" style="zoom: 67%;" />
 
-    * 네모난 표지판을 공중에 띄어 라이다 실제 데이터와 카메라 이미지상에서 코너를 검출하여 코너간의 관계를 비교
+* Matlab simulation
 
-      참고 : https://gnaseel.tistory.com/39?category=907758
+  ```matlab
+  clear; close all; clc;
+  
+  % YOLO image sjze : 620 x 480
+  
+  lidarData  = pcread("../calibration/image,PCD/pointcloud.pcd");
+  
+  Alpha = pi/2;  Beta = 0;   Gamma = 0;
+  
+  camera_height = -0.2;
+  camera_recede = 0.0;
+  
+  imgWidth  = 620;
+  imgHeight = 480;
+  
+  camImage = zeros(imgHeight,imgWidth);
+  focalLen = 0.00367;
+  
+  Rx = [1       0            0        ; 
+        0  cos(Alpha)   -sin(Alpha)   ;
+        0  sin(Alpha)   cos(Alpha)]   ;
+  
+  Ry = [cos(Beta)     0       sin(Beta) ;
+            0         1           0     ;
+        -sin(Beta)    0       cos(Beta)];
+  
+  Rz = [cos(Gamma)   -sin(Gamma)      0 ; 
+        sin(Gamma)    cos(Gamma)      0 ;
+              0           0           1];
+  
+  rotMat = Rz * Ry * Rx;
+  
+  transMat = [0 ; camera_height ; camera_recede];
+  
+  extMat = [rotMat transMat];
+  
+  figure(1);
+  pcshow(lidarData);
+  
+  yCoords = lidarData .Location(:,2);
+  negativeYIndices = find(yCoords < 0);
+  lidarData = select(lidarData, setdiff(1:size(lidarData.Location,1), negativeYIndices));
+  XYZ = lidarData.Location;
+  
+  figure(2);
+  pcshow(lidarData);  title("Preprocess");
+  
+  FOV_x = 48;
+  FOV_y = 42;
+  
+  M_ext = [1 0 0 0;
+           0 0 -1 camera_height;
+           0 1 0  camera_recede];
+  
+  
+  ox = imgWidth/2;
+  oy = imgHeight/2;
+  sx = focalLen * tand(0.5 * FOV_x)/(0.5 * imgWidth) ; 
+  sy = focalLen * tand(0.5 * FOV_y)/(0.5 * imgHeight) ; 
+  
+  
+  M_int= [focalLen/sx     0                   ox;
+           0              focalLen/sy         oy;
+           0                   0                   1 ];
+  
+  x_im = zeros(length(XYZ),1);
+  y_im = zeros(length(XYZ),1);
+  
+  for i=1:length(XYZ)
+  
+      Cz = XYZ(i,2) + camera_recede;
+      MAT =1/Cz * M_int * M_ext * [XYZ(i,1);XYZ(i,2);XYZ(i,3); 1];
+  
+      x_im(i) = MAT(1);
+      y_im(i) = MAT(2);
+  end
+  
+  Projected = horzcat(x_im, y_im);
+  
+  % rgb = insertShape(cam_image,'circle',[(img_width-x_im) (img_height-y_im) ones(length(XYZ),1)],'LineWidth',5,'Color', 'white');
+  rgb = insertShape(camImage,'circle',[(imgWidth - x_im) (y_im) ones(length(XYZ),1)],'LineWidth',5,'Color', 'white');
+  figure(3)
+  imshow(rgb)
+  title("Projected PCD data",FontSize = 14);
+  xlabel("pixel X",FontSize = 14); ylabel("pixel Y",FontSize = 14);
+  ```
 
-    * 원의 코너들을 검출하여 라이다 데이터와 카메라 이미지상에서 원의 지름을 가지고 비교
+  
 
-      참고 논문 : https://www.mdpi.com/2073-8994/12/2/324
+  
 
-* 두 번째 방법을 참고하여 진행해볼 계획이다.
+  
 
-* 
+  
 
-
-
-
-
-## Reference
-
-* Basic of sensor fusion
-
-  * https://gnaseel.tistory.com/39?category=907758
-
-  * https://gnaseel.tistory.com/44?category=907758
-
-  * https://darkpgmr.tistory.com/32
-
-  * https://medium.com/mlearning-ai/a-single-camera-3d-functions-fdec7ffa9a83
-
-  * https://www.mdpi.com/1424-8220/14/3/5333
-
-* Finding intrinsic elements of camera using MATLAB
-
-  * https://blog.naver.com/mingu216/221255976037
