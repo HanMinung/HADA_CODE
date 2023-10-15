@@ -1,0 +1,17 @@
+names:
+- G
+- G-L
+- R
+- R-L
+- R-Y
+- Y
+nc: 6
+roboflow:
+  license: CC BY 4.0
+  project: hada_light
+  url: https://universe.roboflow.com/hada/hada_light/dataset/5
+  version: 5
+  workspace: hada
+test: test/images
+train: train/images
+val: valid/images

@@ -1,0 +1,14 @@
+names:
+- w_dash
+- w_line
+- y_line
+nc: 3
+roboflow:
+  license: CC BY 4.0
+  project: hadaline2
+  url: https://universe.roboflow.com/hada/hadaline2/dataset/1
+  version: 1
+  workspace: hada
+test: test/images
+train: train/images
+val: valid/images

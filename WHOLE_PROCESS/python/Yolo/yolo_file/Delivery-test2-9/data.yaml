@@ -1,0 +1,18 @@
+names:
+- '-'
+- '1'
+- '2'
+- '3'
+- A
+- B
+- Blue-square-sign
+nc: 7
+roboflow:
+  license: CC BY 4.0
+  project: delivery-test2
+  url: https://universe.roboflow.com/hada/delivery-test2/dataset/9
+  version: 9
+  workspace: hada
+test: test/images
+train: train/images
+val: valid/images
